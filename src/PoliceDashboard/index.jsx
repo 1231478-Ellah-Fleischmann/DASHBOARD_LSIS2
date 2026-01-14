@@ -1,0 +1,1 @@
+import { initialAlerts } from "./mock";
