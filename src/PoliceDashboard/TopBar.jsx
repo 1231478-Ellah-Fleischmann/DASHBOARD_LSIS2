@@ -5,10 +5,13 @@
 import React from "react";
 import { Badge, formatTime } from "./utils";
 
-// Em {} são propriedades recebidas do componente pai (PoliceDashboard):
-export default function TopBar({ activeCount, totalCount, avgResponseSeconds }) {
+export default function TopBar({
+  activeCount,
+  totalCount,
+  avgResponseSeconds,
+  lastEventAt,
+}) {
   return (
-    // Cria uma barra horizontal (Flexbox)
     <div
       style={{
         display: "flex",
@@ -23,12 +26,15 @@ export default function TopBar({ activeCount, totalCount, avgResponseSeconds }) 
 
       <Badge>Alertas ativos: {activeCount}</Badge>
       <Badge>Total: {totalCount}</Badge>
+
       <Badge>
-        {avgResponseSeconds ? `Tempo médio até acompanhamento: ~${avgResponseSeconds}s` : "Tempo médio: n/d"}
+        {avgResponseSeconds !== null
+          ? `Tempo médio até acompanhamento: ~${avgResponseSeconds}s`
+          : "Tempo médio: n/d"}
       </Badge>
 
       <div style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280" }}>
-        Última atualização: {formatTime(Date.now())}
+        Última atualização: {lastEventAt ? formatTime(lastEventAt) : "n/d"}
       </div>
     </div>
   );

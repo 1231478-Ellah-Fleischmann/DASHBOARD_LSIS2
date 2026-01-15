@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { formatTime, riskLabel } from "./utils";
+import { formatTime, riskLabel, getDisplayName } from "./utils";
 
 // Fix do ícone do Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,17 +16,49 @@ function Recenter({ lat, lng }) {
   const map = useMap();
 
   useEffect(() => {
-    if (lat && lng) map.setView([lat, lng], map.getZoom(), { animate: true });
+    if (lat != null && lng != null) {
+      map.setView([lat, lng], map.getZoom(), { animate: true });
+    }
   }, [lat, lng, map]);
 
   return null;
 }
 
-export default function MapView({ selected }) {
+export default function MapView({
+  alerts = [],
+  selected,
+  mapMode = "all", // "all" | "single"
+  onSelect,
+  onReset,
+}) {
   const center = [selected?.lat ?? 41.1579, selected?.lng ?? -8.6291];
 
+  const pointsToShow =
+    mapMode === "single" && selected ? [selected] : alerts;
+
   return (
-    <main style={{ padding: 12 }}>
+    <main style={{ padding: 12, height: "100%", position: "relative" }}>
+      {mapMode === "single" && (
+        <button
+          onClick={onReset}
+          style={{
+            position: "absolute",
+            zIndex: 1000,
+            top: 18,
+            right: 18,
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid #e5e7eb",
+            background: "#fff",
+            cursor: "pointer",
+            boxShadow: "0 1px 10px rgba(0,0,0,0.12)",
+          }}
+          title="Voltar a mostrar todos os pontos"
+        >
+          Mostrar todos
+        </button>
+      )}
+
       <div
         style={{
           height: "100%",
@@ -36,22 +68,34 @@ export default function MapView({ selected }) {
           background: "#fff",
         }}
       >
-        <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
+        <MapContainer center={center} zoom={12} style={{ height: "100%", width: "100%" }}>
           <Recenter lat={selected?.lat} lng={selected?.lng} />
 
-          <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <TileLayer
+            attribution="&copy; OpenStreetMap"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-          {selected && (
-            <Marker position={[selected.lat, selected.lng]}>
-              <Popup>
-                <div style={{ fontWeight: 700 }}>{selected.id}</div>
-                <div>{selected.victimName}</div>
-                <div>Risco: {riskLabel(selected.risk)}</div>
-                <div>Estado: {selected.status}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>{formatTime(selected.lastUpdateAt)}</div>
-              </Popup>
-            </Marker>
-          )}
+          {pointsToShow
+            .filter((a) => typeof a.lat === "number" && typeof a.lng === "number")
+            .map((a) => (
+              <Marker
+                key={a.id}
+                position={[a.lat, a.lng]}
+                eventHandlers={{
+                  click: () => onSelect?.(a.id),
+                }}
+              >
+                <Popup>
+                  <div style={{ fontWeight: 700 }}>{a.id}</div>
+                  <div>{getDisplayName(a)}</div>
+                  <div>Risco: {riskLabel(a.risk)}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    Último update: {formatTime(a.lastUpdateAt)}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
         </MapContainer>
       </div>
     </main>

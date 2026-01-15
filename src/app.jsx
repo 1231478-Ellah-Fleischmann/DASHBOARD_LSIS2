@@ -1,4 +1,4 @@
-import PoliceDashboard from "./components/PoliceDashboard";
+import PoliceDashboard from "./PoliceDashboard";
 
 export default function App() {
   return <PoliceDashboard />;

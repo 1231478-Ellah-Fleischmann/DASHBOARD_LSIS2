@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { initialAlerts } from "./mock";
 import TopBar from "./TopBar";
 import AlertList from "./AlertList";
@@ -9,6 +9,9 @@ export default function PoliceDashboard() {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [selectedId, setSelectedId] = useState(initialAlerts[0]?.id);
 
+  // "all" = todos os pontos / "single" = só o selecionado
+  const [mapMode, setMapMode] = useState("all");
+
   const [filters, setFilters] = useState({
     status: "all",
     risk: "all",
@@ -16,115 +19,112 @@ export default function PoliceDashboard() {
     q: "",
   });
 
-  const selected = useMemo(
-    () => alerts.find((a) => a.id === selectedId) ?? alerts[0],
-    [alerts, selectedId]
-  );
-
-  // Simulação de “tempo real”
-  useEffect(() => {
-    const t = setInterval(() => {
-      setAlerts((prev) => {
-        // 30% chance de criar novo alerta
-        if (Math.random() < 0.3) {
-          const id = `AL-${Math.floor(10000 + Math.random() * 90000)}`;
-          const risk = ["low", "medium", "high"][Math.floor(Math.random() * 3)];
-          const source = Math.random() < 0.5 ? "app" : "device";
-          const baseLat = 41.15 + (Math.random() - 0.5) * 0.08;
-          const baseLng = -8.61 + (Math.random() - 0.5) * 0.08;
-          const now = Date.now();
-
-          const newAlert = {
-            id,
-            createdAt: now,
-            lastUpdateAt: now,
-            source,
-            status: "new",
-            risk,
-            victimName: `Vítima #${Math.random().toString(16).slice(2, 5).toUpperCase()}`,
-            lat: baseLat,
-            lng: baseLng,
-            history: [{ at: now, event: `Alerta ativado (${source === "app" ? "PIN" : "dispositivo"})` }],
-          };
-
-          return [newAlert, ...prev].slice(0, 30);
-        }
-
-        // Caso contrário, atualizar um alerta ativo
-        const idx = prev.findIndex((a) => a.status !== "resolved");
-        if (idx === -1) return prev;
-
-        const now = Date.now();
-        const copy = [...prev];
-        const a = { ...copy[idx] };
-
-        a.lat = a.lat + (Math.random() - 0.5) * 0.0015;
-        a.lng = a.lng + (Math.random() - 0.5) * 0.0015;
-        a.lastUpdateAt = now;
-
-        if (Math.random() < 0.15 && a.status === "new") {
-          a.status = "in_progress";
-          a.history = [{ at: now, event: "Em acompanhamento" }, ...a.history];
-        } else if (Math.random() < 0.08 && a.status === "in_progress") {
-          a.status = "resolved";
-          a.history = [{ at: now, event: "Fechado" }, ...a.history];
-        } else {
-          a.history = [{ at: now, event: "Atualização de localização" }, ...a.history].slice(0, 8);
-        }
-
-        copy[idx] = a;
-        return copy;
-      });
-    }, 2500);
-
-    return () => clearInterval(t);
-  }, []);
+  const selected = useMemo(() => {
+    return alerts.find((a) => a.id === selectedId) ?? alerts[0] ?? null;
+  }, [alerts, selectedId]);
 
   const filtered = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
+
     return alerts.filter((a) => {
       if (filters.status !== "all" && a.status !== filters.status) return false;
       if (filters.risk !== "all" && a.risk !== filters.risk) return false;
       if (filters.source !== "all" && a.source !== filters.source) return false;
 
       if (q) {
-        const hay = `${a.id} ${a.victimName}`.toLowerCase();
+        const hay = `${a.id} ${a.fullName ?? ""} ${a.anonymousId ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+
       return true;
     });
   }, [alerts, filters]);
 
-  const activeCount = useMemo(() => alerts.filter((a) => a.status !== "resolved").length, [alerts]);
+  const activeCount = useMemo(() => {
+    return alerts.filter((a) => a.status !== "resolved").length;
+  }, [alerts]);
 
+  // tempo médio até evento que contenha "em acompanhamento"
   const avgResponseSeconds = useMemo(() => {
-    const candidates = alerts
+    const diffsMs = alerts
       .map((a) => {
-        const ev = a.history.find((h) => h.event === "Em acompanhamento");
-        if (!ev) return null;
-        return ev.at - a.createdAt;
-      })
-      .filter(Boolean);
+        const created = new Date(a.createdAt).getTime();
+        if (Number.isNaN(created)) return null;
 
-    if (!candidates.length) return null;
-    const ms = candidates.reduce((s, v) => s + v, 0) / candidates.length;
-    return Math.round(ms / 1000);
+        const ev = (a.history ?? []).find((h) =>
+          String(h.event || "").toLowerCase().includes("em acompanhamento")
+        );
+        if (!ev) return null;
+
+        const handled = new Date(ev.at).getTime();
+        if (Number.isNaN(handled)) return null;
+
+        return handled - created;
+      })
+      .filter((x) => typeof x === "number" && x >= 0);
+
+    if (!diffsMs.length) return null;
+    const avgMs = diffsMs.reduce((s, v) => s + v, 0) / diffsMs.length;
+    return Math.round(avgMs / 1000);
+  }, [alerts]);
+
+  // última atualização real (maior lastUpdateAt)
+  const lastEventAt = useMemo(() => {
+    const times = alerts
+      .map((a) => new Date(a.lastUpdateAt).getTime())
+      .filter((t) => !Number.isNaN(t));
+
+    if (!times.length) return null;
+    return new Date(Math.max(...times)).toISOString();
   }, [alerts]);
 
   return (
-    <div style={{ fontFamily: "system-ui, -apple-system, Segoe UI, Roboto", height: "100vh", background: "#f8fafc" }}>
-      <TopBar activeCount={activeCount} totalCount={alerts.length} avgResponseSeconds={avgResponseSeconds} />
+    <div
+      style={{
+        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto",
+        height: "100vh",
+        width: "100vw",
+        background: "#f8fafc",
+        overflowX: "auto",
+      }}
+    >
+      <TopBar
+        activeCount={activeCount}
+        totalCount={alerts.length}
+        avgResponseSeconds={avgResponseSeconds}
+        lastEventAt={lastEventAt}
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "360px 1fr 420px", height: "calc(100vh - 54px)" }}>
+      <div
+        style={{
+          display: "grid",
+          // ✅ 3ª coluna maior
+          gridTemplateColumns: "500px 4fr 500px",
+          height: "calc(100vh - 54px)",
+          minWidth: 1100, // ajuda quando o ecrã for pequeno
+        }}
+      >
         <AlertList
           filtered={filtered}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setMapMode("single");
+          }}
           filters={filters}
           setFilters={setFilters}
         />
 
-        <MapView selected={selected} />
+        <MapView
+          alerts={filtered}
+          selected={selected}
+          mapMode={mapMode}
+          onSelect={(id) => {
+            setSelectedId(id);
+            setMapMode("single");
+          }}
+          onReset={() => setMapMode("all")}
+        />
 
         <AlertDetails selected={selected} setAlerts={setAlerts} />
       </div>

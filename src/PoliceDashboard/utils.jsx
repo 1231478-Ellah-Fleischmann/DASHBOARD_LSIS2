@@ -1,7 +1,16 @@
 // Recebe um timestamp (ts) em milissegundos, converte esse número num objeto Date e devolve uma string
-export function formatTime(ts) {
-  const d = new Date(ts);
+export function formatTime(isoString) {
+  if (!isoString) return "n/d";
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return "n/d";
   return d.toLocaleString("pt-PT", { hour12: false });
+}
+
+export function getDisplayName(alert) {
+  if (!alert) return "Vítima (n/d)";
+  if (alert.source === "app" && alert.fullName) return alert.fullName;
+  if (alert.anonymousId) return alert.anonymousId;
+  return "Vítima (anónima)";
 }
 
 // Converte um valor técnico (high, medium, low) p/ texto
@@ -19,7 +28,6 @@ export function RiskDot({ risk }) {
     high: { background: "#ef4444" },
   };
 
-  // Transforma um span estilizado com a cor correspondente ao nível de risco
   return (
     <span
       style={{

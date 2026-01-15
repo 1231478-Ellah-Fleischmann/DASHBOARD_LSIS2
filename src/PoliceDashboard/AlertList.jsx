@@ -1,16 +1,18 @@
-import React from "react";
 // importa utilitários 
-import { RiskDot, riskLabel, formatTime } from "./utils";
+import React from "react";
+import { RiskDot, riskLabel, formatTime, getDisplayName } from "./utils";
 
-export default function AlertList({ filtered, selectedId, onSelect, filters, setFilters }) {
+export default function AlertList({
+  filtered,
+  selectedId,
+  onSelect,
+  filters,
+  setFilters,
+}) {
   return (
     <aside style={{ borderRight: "1px solid #e5e7eb", padding: 12, overflow: "auto" }}>
       <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
         <input
-        // input controlado pelo React 
-        // lê o valor atual do filtro
-        // atualiza apenas uma propriedade
-        // mantém as outras intactas
           value={filters.q}
           onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
           placeholder="Pesquisar por ID ou vítima…"
@@ -50,19 +52,25 @@ export default function AlertList({ filtered, selectedId, onSelect, filters, set
             <option value="device">Dispositivo</option>
           </select>
         </div>
-    </div>
+      </div>
 
-    {/* Mostra quantos alertas passaram nos filtros */}
-    <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
         Resultados: {filtered.length}
       </div>
 
       <div style={{ display: "grid", gap: 8 }}>
-        {/* Percorre todos os alertas filtrados */}
         {filtered.map((a) => {
           const isSelected = a.id === selectedId;
 
-          {/* Cada alerta é clicável */}
+          const statusText =
+            a.status === "new"
+              ? "Novo"
+              : a.status === "in_progress"
+              ? "Em acompanhamento"
+              : "Resolvido";
+
+          const sourceText = a.source === "app" ? "App" : "Dispositivo";
+
           return (
             <button
               key={a.id}
@@ -78,21 +86,23 @@ export default function AlertList({ filtered, selectedId, onSelect, filters, set
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <div style={{ fontWeight: 700 }}>{a.id}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>{formatTime(a.createdAt)}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  {formatTime(a.createdAt)}
+                </div>
               </div>
 
-              <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <RiskDot risk={a.risk} />
                 <span style={{ fontSize: 13 }}>{riskLabel(a.risk)}</span>
-                <span style={{ fontSize: 12, color: "#6b7280" }}>
-                  • {a.status === "new" ? "Novo" : a.status === "in_progress" ? "Em acompanhamento" : "Resolvido"}
-                </span>
-                <span style={{ fontSize: 12, color: "#6b7280" }}>
-                  • {a.source === "app" ? "App" : "Dispositivo"}
-                </span>
+
+                <span style={{ fontSize: 12, color: "#6b7280" }}>• {statusText}</span>
+                <span style={{ fontSize: 12, color: "#6b7280" }}>• {sourceText}</span>
               </div>
 
-              <div style={{ marginTop: 6, fontSize: 12, color: "#374151" }}>{a.victimName}</div>
+              <div style={{ marginTop: 6, fontSize: 12, color: "#374151" }}>
+                {getDisplayName(a)}
+              </div>
+
               <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
                 Último update: {formatTime(a.lastUpdateAt)}
               </div>
