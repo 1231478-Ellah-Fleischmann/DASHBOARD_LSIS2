@@ -1,8 +1,14 @@
+//Importa:
+//Badge → componente visual reutilizável (pílulas).
+//formatTime → função que formata datas.
+
 import React from "react";
 import { Badge, formatTime } from "./utils";
 
+// Em {} são propriedades recebidas do componente pai (PoliceDashboard):
 export default function TopBar({ activeCount, totalCount, avgResponseSeconds }) {
   return (
+    // Cria uma barra horizontal (Flexbox)
     <div
       style={{
         display: "flex",
